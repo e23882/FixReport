@@ -57,7 +57,7 @@
         <Parent guid="guidLeoReportExtensionPackageCmdSet" id="MyMenuGroup" />
         <Icon guid="guidImages" id="bmpPic1" />
         <Strings>
-          <ButtonText>Leo Test Command</ButtonText>
+          <ButtonText>啟動自動修正報表</ButtonText>
         </Strings>
       </Button>
     </Buttons>

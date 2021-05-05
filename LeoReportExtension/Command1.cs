@@ -15,9 +15,6 @@ using Task = System.Threading.Tasks.Task;
 
 namespace LeoReportExtension
 {
-    [ProvideAutoLoad(Microsoft.VisualStudio.Shell.Interop.UIContextGuids80.SolutionExists)]
-    [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionExists_string)]
-    [ProvideAutoLoad(UIContextGuids80.SolutionExists)]
     /// <summary>
     /// Command handler
     /// </summary>
@@ -77,8 +74,7 @@ namespace LeoReportExtension
             var menuCommandID = new CommandID(CommandSet, CommandId);
             var menuItem = new MenuCommand(this.Execute, menuCommandID);
             commandService.AddCommand(menuItem);
-            DTE2 dte2 = (DTE2)Package.GetGlobalService(typeof(SDTE));
-            dte2.Events.BuildEvents.OnBuildDone += BuildEvents_OnBuildDone1;
+            
         }
 
         /// <summary>
@@ -115,6 +111,7 @@ namespace LeoReportExtension
             Instance = new Command1(package, commandService);
         }
 
+        bool AlreadyListening = false;
         /// <summary>
         /// This function is the callback used to execute the command when the menu item is clicked.
         /// See the constructor to see how the menu item is associated with this function using
@@ -132,46 +129,61 @@ namespace LeoReportExtension
                 OLEMSGICON.OLEMSGICON_INFO,
                 OLEMSGBUTTON.OLEMSGBUTTON_OK,
                 OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+            if (AlreadyListening != true) 
+            {
+                DTE2 dte2 = (DTE2)Package.GetGlobalService(typeof(SDTE));
+                dte2.Events.BuildEvents.OnBuildDone += BuildEvents_OnBuildDone1;
+            }
         }
 
         private void RemoveTagAutomatically()
         {
             string removeFileList = string.Empty;
+            string notToBeRemoveFileList = string.Empty;
             ThreadHelper.ThrowIfNotOnUIThread();
             string docName = GetActiveProjectPath();
             foreach (var item in Directory.GetFiles(docName))
             {
                 if (item.Contains("rdlc"))
                 {
+                    
                     StreamReader str = new StreamReader(item);
                     var data = str.ReadToEnd();
                     str.Close();
-                    //replace 2016 to 2008
-                    data = data.Replace("http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition", "http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition");
+                    if (data.Contains("http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition"))
+                    {
+                        //replace 2016 to 2008
+                        data = data.Replace("http://schemas.microsoft.com/sqlserver/reporting/2016/01/reportdefinition", "http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition");
 
-                    //remove ReportSections
-                    data = data.Replace("<ReportSections>", "");
-                    data = data.Replace("</ReportSections>", "");
+                        //remove ReportSections
+                        data = data.Replace("<ReportSections>", "");
+                        data = data.Replace("</ReportSections>", "");
 
-                    //remove ReportSection
-                    data = data.Replace("<ReportSection>", "");
-                    data = data.Replace("</ReportSection>", "");
+                        //remove ReportSection
+                        data = data.Replace("<ReportSection>", "");
+                        data = data.Replace("</ReportSection>", "");
 
-                    //remove ReportParametersLayout
-                    var removeLayoutTagStartIndex = data.IndexOf("<ReportParametersLayout>") + 1;
-                    var removeLayoutTagEndIndex = data.IndexOf("</ReportParametersLayout>") + 1;
-                    data = data.Remove(removeLayoutTagStartIndex, removeLayoutTagEndIndex - removeLayoutTagStartIndex);
-                    data = data.Replace("</ReportParametersLayout>", "");
+                        //remove ReportParametersLayout
+                        var removeLayoutTagStartIndex = data.IndexOf("<ReportParametersLayout>") + 1;
+                        var removeLayoutTagEndIndex = data.IndexOf("</ReportParametersLayout>") + 1;
+                        data = data.Remove(removeLayoutTagStartIndex, removeLayoutTagEndIndex - removeLayoutTagStartIndex);
+                        data = data.Replace("</ReportParametersLayout>", "");
 
-                    //overwrite origin file
-                    System.IO.File.WriteAllText(item, data);
-                    removeFileList += $"{item}\r\n";
+                        //overwrite origin file
+                        System.IO.File.WriteAllText(item, data);
+                        removeFileList += $"{item}\r\n";
+                    }
+                    else 
+                    {
+                        notToBeRemoveFileList += $"{item}\r\n"; ;
+                    }
+                    
                 }
             }
 
             VsShellUtilities.ShowMessageBox(
                 this.package,
-                removeFileList,
+                $"已修正項目:\r\n{removeFileList}\r\n不須修正項目:\r\n{notToBeRemoveFileList}",
                 "Remove RDLC Report Tag List",
                 OLEMSGICON.OLEMSGICON_INFO,
                 OLEMSGBUTTON.OLEMSGBUTTON_OK,
@@ -190,10 +202,5 @@ namespace LeoReportExtension
             return projectPath;
         }
         #endregion
-
-
-
-
-
     }
 }
